@@ -37,8 +37,10 @@ function play_song(url, monitor)
         error("Invalid url", 0)
     end
 
-    local speaker = get_speakers(monitor)[1]
-    speaker.stop()
+    local speakers = get_speakers(monitor)[1]
+    for _, speaker in ipairs(speakers) do
+        speaker.stop()
+    end
 
     local handle, err
     if http and url:match("^https?://") then
@@ -112,9 +114,21 @@ function play_song(url, monitor)
         end
 
         local buffer = decoder(chunk)
-        while not speaker.playAudio(buffer) do
-            os.pullEvent("speaker_audio_empty")
+
+
+        local functions = {}
+
+        for _, speaker in ipairs(speakers) do
+            local function playSpeaker()
+                while not speaker.playAudio(buffer) do
+                    os.pullEvent("speaker_audio_empty")
+                end
+            end
+            functions.insert(#functions, playSpeaker)
         end
+
+        parallel.waitForAll(table.unpack(functions))
+
         ::continue::
     end
 
